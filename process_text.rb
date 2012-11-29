@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-$debug = 7
+$debug = 0
 
 def luhn_check(str)
   result = str.reverse.chars.each_with_index.inject(0) do |sum, (ch,  index) |
@@ -19,68 +19,98 @@ def luhn_check(str)
   (result % 10 == 0) ? true : false
 end
 
-def process_sample(idx, sample)
-  numbers = sample.gsub(/ -/, "")
-  STDERR.puts "Top process_sample: idx: #{idx} sample: #{sample.inspect} numbers: #{numbers.inspect}" if $debug > 6
+def process_sample(line, num_string)
+  if luhn_check(num_string)
+    STDERR.puts "luhn true num_string: #{num_string}"   if $debug > 2
 
-  if numbers.length < 14
-    print sample
-    idx += sample.length
-    STDERR.puts "<14: idx: #{idx} sample: #{sample.inspect} numbers: #{numbers.inspect}"  if $debug > 6
-    idx
-  elsif (numbers.length == 14) &&  luhn_check(numbers)
-    print sample.gsub(/\d/, "X")
-    idx += sample.length
-    STDERR.puts "=14 luhn true: numbers.length: #{numbers.length} idx: #{idx} sample: #{sample.inspect} numbers: #{numbers.inspect}"  if $debug > 6
-    idx
-  elsif (numbers.length == 15) &&  luhn_check(numbers)
-    print sample.gsub(/\d/, "X")
-    idx += sample.length
-    STDERR.puts "=15 luhn true: numbers.length: #{numbers.length} idx: #{idx} sample: #{sample.inspect} numbers: #{numbers.inspect}"  if $debug > 6
-    idx
-  elsif (numbers.length == 16) &&  luhn_check(numbers)
-    print sample.gsub(/\d/, "X")
-    idx += sample.length
-    STDERR.puts "=6 luhn true: numbers.length: #{numbers.length} idx: #{idx} sample: #{sample.inspect} numbers: #{numbers.inspect}"  if $debug > 6
-    idx
-  else
-    m = /^([ -]*\d)/.match(sample)
-    print m[1]
-    idx += 1
-    idx = process_sample(idx, sample[m[1].length..-1])
-    STDERR.puts ">16 luhn false: numbers.length: #{numbers.length} idx: #{idx} sample: #{sample.inspect} numbers: #{numbers.inspect} m[1]: #{m[1].inspect}"  if $debug > 6
-    idx
-  # else
-  #   print sample
-  #   idx += sample.length
-  #   STDERR.puts "process_sample ELSE numbers.length: #{numbers.length} idx: #{idx} sample: #{sample.inspect} numbers: #{numbers.inspect}"  if $debug > 6
-  #   idx
+    slice.each do | k |
+      line[k] = "X"
+    end
+    STDERR.puts "luhn true line: #{line.inspect}"   if $debug > 2
   end
 end
 
-def process_line(line)
-  STDERR.puts "TOP line: #{line}"  if $debug > 2
-  idx = 0
-  while idx < line.length
-    STDERR.puts "Top while idx: #{idx.inspect} line.length: #{line.length}"  if $debug > 6
-    if line[idx] !~ /\d| |-/
-      m = /([^\d \-]+)/.match(line[idx..-1])
-      STDERR.puts "Not Numbers m[1]: #{m[1]} m: #{m.inspect}"  if $debug > 6
-      print m[1]
-      idx += m[1].length
-      STDERR.puts "NOT number,space,dash idx: #{idx.inspect} m[1].length: #{m[1].length} m[1]: #{m[1].inspect}"  if $debug > 6
-    else
-      STDERR.puts "Initial Sample: line[#{idx.inspect}]: #{line[idx..-1].inspect}"  if $debug > 6
-      m = /([\d \-]+)/.match(line[idx..-1])
-      STDERR.puts "Initial m[1]: #{m[1]} m: #{m.inspect}"  if $debug > 6
-      idx = process_sample(idx, m[1])
-      STDERR.puts "After process_sample idx: #{idx.inspect}"  if $debug > 6
-      idx
+def string_from_sample(sample, start, last)
+  keys = sample.keys.sort
+  keys.inject(String.new) { | str, k |  str += sample[k] }
+end
+
+def process_samples(line, samples)
+  samples.each do | sample |
+      STDERR.puts "Loop top sample: #{sample.inspect} length: #{sample.length}"   if $debug > 2
+    if sample.length < 14
+      STDERR.puts "< 14 sample: #{sample.inspect} length: #{sample.length}"   if $debug > 2
+      next
+    elsif sample.length == 14
+      STDERR.puts "== 14 sample: #{sample.inspect} length: #{sample.length}"   if $debug > 2
+      process_sample(line, string_from_sample(sample))
+    elsif sample.length > 14
+      
     end
   end
 end
 
-ARGF.each do |line|
-  process_line(line)
+    [14,15,16].each do | num_length |
+      keys = sample.keys.sort
+
+      keys.each_slice(num_length).each do | slice |
+        STDERR.puts "l: #{num_length} slice: #{slice.inspect}"   if $debug > 2
+
+        break if slice.length != num_length
+
+        num_string = slice.inject(String.new) { | str, k |  str += sample[k] }
+        STDERR.puts "num_string: #{num_string.inspect}"   if $debug > 2
+
+        if luhn_check(num_string)
+          STDERR.puts "luhn true num_string: #{num_string}"   if $debug > 2
+
+          slice.each do | k |
+            line[k] = "X"
+          end
+          STDERR.puts "luhn true line: #{line.inspect}"   if $debug > 2
+        end
+
+      end
+    end
+  end
+  line.join
+end
+
+def process_line(line)
+  STDERR.puts "TOP line: #{line}"  if $debug > 2
+
+  # Chunk up adjacent numbers (may include spaces and dashes)
+  prev_is_cc_char = false
+  samples = Array.new
+  sindex = 0
+  line.chars.each_with_index do | ch, index |
+    case ch
+    when /\d/
+      unless  prev_is_cc_char
+        samples[sindex] = Hash.new
+        prev_is_cc_char = true
+      end
+      samples[sindex][index] = ch
+    when /[^\d \-]/
+      if  prev_is_cc_char
+        prev_is_cc_char = false
+        sindex += 1
+      end
+    end
+  end
+
+  output_line = process_samples(line.chars.to_a, samples)
+  puts output_line
+end
+
+ARGF.each_with_index do |line, index|
+#  STDERR.puts "--------------------- line #{index}"
+  if index == 11
+    $debug = 7
+  else
+    $debug = 0
+  end
+  
+  process_line(line.chomp)
 end
 
