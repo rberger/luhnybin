@@ -19,20 +19,37 @@ def luhn_check(str)
   (result % 10 == 0) ? true : false
 end
 
-def process_sample(line, num_string)
+def string_from_sample(sample, keys=nil)
+  keys ||= sample.keys.sort
+  keys.inject(String.new) { | str, k |  str += sample[k] }
+end
+
+def process_sample(line, num_string, keys)
   if luhn_check(num_string)
     STDERR.puts "luhn true num_string: #{num_string}"   if $debug > 2
-
-    slice.each do | k |
+    keys.each do | k |
       line[k] = "X"
     end
     STDERR.puts "luhn true line: #{line.inspect}"   if $debug > 2
   end
 end
 
-def string_from_sample(sample, start, last)
+def window_sample(line, sample)
+  idx = 0
+  length = sample.length
   keys = sample.keys.sort
-  keys.inject(String.new) { | str, k |  str += sample[k] }
+  while idx < length
+    [14,15,16].each do | num_length |
+      end_idx = idx + num_length - 1
+      if end_idx < length
+        window_keys = keys[idx..end_idx]
+        num_string = string_from_sample(sample, window_keys)
+        STDERR.puts "win_sample: idx: #{idx} end_idx: #{end_idx} length:#{length} #{num_string.inspect} num_string length: #{num_string.length}"   if $debug > 2
+        process_sample(line, num_string, window_keys)
+      end
+    end
+    idx += 1
+  end
 end
 
 def process_samples(line, samples)
@@ -43,34 +60,9 @@ def process_samples(line, samples)
       next
     elsif sample.length == 14
       STDERR.puts "== 14 sample: #{sample.inspect} length: #{sample.length}"   if $debug > 2
-      process_sample(line, string_from_sample(sample))
+      process_sample(line, string_from_sample(sample), sample.keys.sort)
     elsif sample.length > 14
-      
-    end
-  end
-end
-
-    [14,15,16].each do | num_length |
-      keys = sample.keys.sort
-
-      keys.each_slice(num_length).each do | slice |
-        STDERR.puts "l: #{num_length} slice: #{slice.inspect}"   if $debug > 2
-
-        break if slice.length != num_length
-
-        num_string = slice.inject(String.new) { | str, k |  str += sample[k] }
-        STDERR.puts "num_string: #{num_string.inspect}"   if $debug > 2
-
-        if luhn_check(num_string)
-          STDERR.puts "luhn true num_string: #{num_string}"   if $debug > 2
-
-          slice.each do | k |
-            line[k] = "X"
-          end
-          STDERR.puts "luhn true line: #{line.inspect}"   if $debug > 2
-        end
-
-      end
+      window_sample(line, sample)
     end
   end
   line.join
@@ -105,7 +97,7 @@ end
 
 ARGF.each_with_index do |line, index|
 #  STDERR.puts "--------------------- line #{index}"
-  if index == 11
+  if index == 9
     $debug = 7
   else
     $debug = 0
